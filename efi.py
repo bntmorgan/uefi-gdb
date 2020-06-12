@@ -63,7 +63,7 @@ class Command_efi(gdb.Command):
     """
 
     LOG_FILE = 'debug.log'
-    A_PATTERN = r'Loading [^ ]+ at (0x[0-9A-F]{8,}) [^ ]+ ([^ ]+)\.efi'
+    A_PATTERN = r'Loading [^ ]+ at (0x[0-9a-fA-F]{8,}) [^ ]+ ([^ ]+)\.efi'
 
     def __init__(self):
         super(Command_efi, self).__init__("efi", gdb.COMMAND_OBSCURE)
@@ -75,10 +75,16 @@ class Command_efi(gdb.Command):
             if f == name and os.path.isfile(f):
                 return f
         # if nothing is found, look in "Build" directory and subdirectories
-        if not os.path.isdir('Build'):
+        if not os.path.isdir('edk2/Build'):
             return None
-        for root, dirs, files in os.walk('Build'):
+        for root, dirs, files in os.walk('edk2/Build'):
             if name in files and self.arch in root.split(os.sep):
+                return os.path.join(root, name)
+        # if nothing is found, look in "/tmp/binary" directory and subdirectories
+        if not os.path.isdir('/tmp/binary'):
+            return None
+        for root, dirs, files in os.walk('/tmp/binary'):
+            if name in files:
                 return os.path.join(root, name)
 
     def get_addresses(self, file_name):
@@ -134,8 +140,8 @@ class Command_efi(gdb.Command):
         else:
             drivers = None
 
-        if not os.path.isdir('Build'):
-            print('Directory "Build" is missing')
+        if not os.path.isdir('edk2/Build'):
+            print('Directory "edk2/Build" is missing')
 
         print('With architecture ' + self.arch)
 
@@ -154,11 +160,17 @@ class Command_efi(gdb.Command):
                 print('File ' + file_name + ' not found')
                 continue
 
+            # Check .debug
             debug_file = efi_file[:-3] + 'debug'
 
             if not os.path.isfile(debug_file):
-                print('No debug file for ' + efi_file)
-                continue
+
+                # Check .elf
+                debug_file = efi_file[:-3] + 'elf'
+
+                if not os.path.isfile(debug_file):
+                    print('No debug file for ' + efi_file)
+                    continue
 
             print('EFI file ' + efi_file)
 
